@@ -1,0 +1,95 @@
+/*
+ * Copyright 2021-present StarRocks, Inc. All rights reserved.
+ *
+ * Licensed to the Apache Software Foundation (ASF) under one
+ * or more contributor license agreements.  See the NOTICE file
+ * distributed with this work for additional information
+ * regarding copyright ownership.  The ASF licenses this file
+ * to you under the Apache License, Version 2.0 (the
+ * "License"); you may not use this file except in compliance
+ * with the License.  You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+
+package com.starrocks.connector.kafka.schema;
+
+import java.util.HashMap;
+import java.util.HashSet;
+import java.util.Map;
+import java.util.Set;
+
+import org.apache.kafka.connect.data.Field;
+import org.apache.kafka.connect.data.Schema;
+import org.apache.kafka.connect.errors.ConnectException;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
+// Additive-only schema evolution: caches known columns per table and issues
+// ALTER TABLE ADD COLUMN for fields present in an incoming record's schema
+// but missing from the table. Never drops columns, changes types, or
+// creates tables - the table must already exist.
+public class SchemaEvolutionManager {
+    private static final Logger LOG = LoggerFactory.getLogger(SchemaEvolutionManager.class);
+
+    private final StarRocksSystemService systemService;
+    private final String database;
+    private final Map<String, Set<String>> tableColumnsCache = new HashMap<>();
+
+    public SchemaEvolutionManager(StarRocksSystemService systemService, String database) {
+        this.systemService = systemService;
+        this.database = database;
+    }
+
+    public void evolve(String table, Schema valueSchema) {
+        Set<String> columns = tableColumnsCache.computeIfAbsent(table, this::loadColumns);
+        for (Field field : valueSchema.fields()) {
+            if (!columns.contains(field.name())) {
+                addColumn(table, field, columns);
+            }
+        }
+    }
+
+    private Set<String> loadColumns(String table) {
+        if (!systemService.tableExists(database, table)) {
+            throw new ConnectException(
+                    "StarRocks table '" + database + "." + table + "' does not exist. "
+                    + "Schema evolution requires the table to already exist; auto-create is not supported.");
+        }
+        return new HashSet<>(systemService.getColumns(database, table));
+    }
+
+    private void addColumn(String table, Field field, Set<String> cachedColumns) {
+        if (systemService.columnExists(database, table, field.name())) {
+            cachedColumns.add(field.name());
+            return;
+        }
+        String columnType = StarRocksTypeMapper.mapType(field.schema());
+        String ddl = String.format(
+                "ALTER TABLE `%s`.`%s` ADD COLUMN `%s` %s NULL",
+                database, table, field.name(), columnType);
+        try {
+            systemService.executeAlter(ddl);
+            LOG.info("Added column {} ({}) to StarRocks table {}.{}", field.name(), columnType, database, table);
+        } catch (Exception e) {
+            if (isDuplicateColumnError(e)) {
+                LOG.warn("Column {} already exists on {}.{}, ignoring: {}", field.name(), database, table, e.getMessage());
+            } else {
+                throw new ConnectException(
+                        "Failed to add column " + field.name() + " to StarRocks table " + database + "." + table, e);
+            }
+        }
+        cachedColumns.add(field.name());
+    }
+
+    private boolean isDuplicateColumnError(Exception e) {
+        String message = e.getMessage();
+        return message != null && message.toLowerCase().contains("duplicate column");
+    }
+}
