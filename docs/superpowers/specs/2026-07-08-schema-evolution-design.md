@@ -129,6 +129,12 @@ never alter key/distribution definitions).
   failure path from the existing Stream Load `maxRetryTimes`/backoff
   counter, since DDL failures are not the kind of transient fault that
   counter exists to absorb.
+  Note: this uniform fail-fast behavior currently applies to all `evolve()`
+  failures, including transient JDBC connection faults (e.g., a dropped
+  connection or brief FE restart) that might otherwise be worth retrying the
+  way Stream Load failures are via `maxRetryTimes`. This is a deliberate
+  simplification, not an oversight — revisit if transient JDBC faults prove
+  disruptive in practice.
 
 ## Testing plan
 
