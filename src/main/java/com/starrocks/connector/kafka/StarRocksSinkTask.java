@@ -28,6 +28,7 @@ import java.util.Map;
 
 import org.apache.kafka.clients.consumer.OffsetAndMetadata;
 import org.apache.kafka.common.TopicPartition;
+import org.apache.kafka.connect.data.Schema;
 import org.apache.kafka.connect.errors.DataException;
 import org.apache.kafka.connect.sink.SinkRecord;
 import org.apache.kafka.connect.sink.SinkTask;
@@ -38,6 +39,10 @@ import com.fasterxml.jackson.databind.JsonNode;
 import com.starrocks.connector.kafka.json.DecimalFormat;
 import com.starrocks.connector.kafka.json.JsonConverter;
 import com.starrocks.connector.kafka.json.JsonConverterConfig;
+import com.starrocks.connector.kafka.schema.JdbcStarRocksSystemService;
+import com.starrocks.connector.kafka.schema.SchemaEvolutionManager;
+import com.starrocks.connector.kafka.schema.StarRocksJdbcConnectionProvider;
+import com.starrocks.connector.kafka.schema.StarRocksSystemService;
 import com.starrocks.data.load.stream.StreamLoadDataFormat;
 import com.starrocks.data.load.stream.properties.StreamLoadProperties;
 import com.starrocks.data.load.stream.properties.StreamLoadTableProperties;
@@ -85,6 +90,10 @@ public class StarRocksSinkTask extends SinkTask  {
     private long bufferFlushInterval;
     private long currentBufferBytes = 0;
     private long lastFlushTime = 0;
+
+    private boolean schemaEvolutionEnabled;
+    private SchemaEvolutionManager schemaEvolutionManager;
+    private StarRocksJdbcConnectionProvider jdbcConnectionProvider;
 
     private StreamLoadManagerV2 buildLoadManager(StreamLoadProperties loadProperties) {
         StreamLoadManagerV2 manager = new StreamLoadManagerV2(loadProperties, true);
@@ -207,7 +216,28 @@ public class StarRocksSinkTask extends SinkTask  {
         topic2Table = getTopicToTableMap(props);
         jsonConverter = createJsonConverter();
         maxRetryTimes = Long.parseLong(props.getOrDefault(StarRocksSinkConnectorConfig.SINK_MAXRETRIES, "3"));
+        initSchemaEvolution();
         LOG.info("Starrocks sink task started. version is " + Util.VERSION);
+    }
+
+    private void initSchemaEvolution() {
+        String schemaEvolutionMode = props.getOrDefault(
+                StarRocksSinkConnectorConfig.STARROCKS_SCHEMA_EVOLUTION,
+                StarRocksSinkConnectorConfig.SCHEMA_EVOLUTION_NONE);
+        schemaEvolutionEnabled = StarRocksSinkConnectorConfig.SCHEMA_EVOLUTION_BASIC.equalsIgnoreCase(schemaEvolutionMode);
+        if (!schemaEvolutionEnabled) {
+            return;
+        }
+        String queryPort = props.getOrDefault(StarRocksSinkConnectorConfig.STARROCKS_QUERY_PORT, "9030");
+        String explicitJdbcUrl = props.get(StarRocksSinkConnectorConfig.STARROCKS_JDBC_URL);
+        String jdbcUrl = StarRocksJdbcConnectionProvider.buildJdbcUrl(
+                props.get(StarRocksSinkConnectorConfig.STARROCKS_LOAD_URL), queryPort, explicitJdbcUrl, database);
+        String username = props.get(StarRocksSinkConnectorConfig.STARROCKS_USERNAME);
+        String password = props.get(StarRocksSinkConnectorConfig.STARROCKS_PASSWORD);
+        jdbcConnectionProvider = new StarRocksJdbcConnectionProvider(jdbcUrl, username, password);
+        StarRocksSystemService systemService = new JdbcStarRocksSystemService(jdbcConnectionProvider);
+        schemaEvolutionManager = new SchemaEvolutionManager(systemService, database);
+        LOG.info("Starrocks schema evolution enabled, jdbcUrl={}", jdbcUrl);
     }
 
     static Map<String, String> getTopicToTableMap(Map<String, String> config) {
@@ -224,6 +254,14 @@ public class StarRocksSinkTask extends SinkTask  {
 
     private String getTableFromTopic(String topic) {
         return topic2Table.getOrDefault(topic, topic);
+    }
+
+    static boolean isEligibleForSchemaEvolution(boolean schemaEvolutionEnabled, SinkType sinkType, SinkRecord record) {
+        return schemaEvolutionEnabled
+                && sinkType == SinkType.JSON
+                && record != null
+                && record.valueSchema() != null
+                && record.valueSchema().type() == Schema.Type.STRUCT;
     }
 
     public void setJsonConverter(JsonConverter jsonConverter) {
@@ -301,6 +339,10 @@ public class StarRocksSinkTask extends SinkTask  {
             LOG.debug("Received record: " + record.toString());
 
             String topic = record.topic();
+            String table = getTableFromTopic(topic);
+            if (isEligibleForSchemaEvolution(schemaEvolutionEnabled, sinkType, record)) {
+                schemaEvolutionManager.evolve(table, record.valueSchema());
+            }
             // The sdk does not provide the ability to clean up exceptions, that is to say, according to the current implementation of the SDK,
             // after an Exception occurs, the SDK must be re-initialized, which is based on flink:
             // 1. When an exception occurs, put will continue to fail, at which point we do nothing and let put move forward.
@@ -313,7 +355,7 @@ public class StarRocksSinkTask extends SinkTask  {
                 continue;
             }
             try {
-                loadManager.write(null, database, getTableFromTopic(topic), row);
+                loadManager.write(null, database, table, row);
                 currentBufferBytes += row.getBytes().length;
             } catch (Exception writeException) {
                 LOG.error("Starrocks Put error: " + writeException.getMessage() +
@@ -394,6 +436,9 @@ public class StarRocksSinkTask extends SinkTask  {
         }
         if (jsonConverter != null) {
             jsonConverter.close();
+        }
+        if (jdbcConnectionProvider != null) {
+            jdbcConnectionProvider.close();
         }
         LOG.info("Starrocks sink task stopped. version is " + Util.VERSION);
     }

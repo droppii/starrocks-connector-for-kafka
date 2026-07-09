@@ -166,4 +166,18 @@ public class StarRocksSinkTaskTest {
         String row = sinkTask.getRecordFromSinkRecord(sinkRecord);
         Assert.assertEquals("{\"id\":1,\"name\":null}", row);
     }
+
+    @Test
+    public void testIsEligibleForSchemaEvolution() {
+        Schema structSchema = SchemaBuilder.struct().field("id", Schema.INT32_SCHEMA).build();
+        Struct structValue = new Struct(structSchema).put("id", 1);
+        SinkRecord structRecord = new SinkRecord("t", 0, null, null, structSchema, structValue, 0);
+        SinkRecord schemalessRecord = new SinkRecord("t", 0, null, null, null, "{}", 0);
+
+        Assert.assertTrue(StarRocksSinkTask.isEligibleForSchemaEvolution(true, StarRocksSinkTask.SinkType.JSON, structRecord));
+        Assert.assertFalse(StarRocksSinkTask.isEligibleForSchemaEvolution(false, StarRocksSinkTask.SinkType.JSON, structRecord));
+        Assert.assertFalse(StarRocksSinkTask.isEligibleForSchemaEvolution(true, StarRocksSinkTask.SinkType.CSV, structRecord));
+        Assert.assertFalse(StarRocksSinkTask.isEligibleForSchemaEvolution(true, StarRocksSinkTask.SinkType.JSON, schemalessRecord));
+        Assert.assertFalse(StarRocksSinkTask.isEligibleForSchemaEvolution(true, StarRocksSinkTask.SinkType.JSON, null));
+    }
 }
