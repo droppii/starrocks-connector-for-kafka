@@ -197,6 +197,15 @@ public class JsonConverterTest {
     }
 
     @Test
+    public void parsesDebeziumTimestampFromStarRocksString() {
+        JsonConverter jsonConverter = StarRocksSinkTask.createJsonConverter();
+        String envelope = "{\"schema\":{\"type\":\"int64\",\"optional\":false,\"name\":\"" + TemporalTypeFormats.DEBEZIUM_TIMESTAMP + "\"},"
+                + "\"payload\":\"1970-01-02 01:01:01.000000\"}";
+        SchemaAndValue schemaAndValue = jsonConverter.toConnectData("test-topic", envelope.getBytes(StandardCharsets.UTF_8));
+        Assert.assertEquals(90061000L, schemaAndValue.value());
+    }
+
+    @Test
     public void parsesDebeziumMicroTimestampFromStarRocksString() {
         JsonConverter jsonConverter = StarRocksSinkTask.createJsonConverter();
         String envelope = "{\"schema\":{\"type\":\"int64\",\"optional\":false,\"name\":\"" + TemporalTypeFormats.DEBEZIUM_MICRO_TIMESTAMP + "\"},"
