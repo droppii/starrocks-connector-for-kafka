@@ -23,8 +23,15 @@ package com.starrocks.connector.kafka.schema;
 import org.apache.kafka.connect.data.Date;
 import org.apache.kafka.connect.data.Decimal;
 import org.apache.kafka.connect.data.Schema;
+import org.apache.kafka.connect.data.Time;
 import org.apache.kafka.connect.data.Timestamp;
 import org.apache.kafka.connect.errors.DataException;
+
+import com.starrocks.connector.kafka.json.TemporalTypeFormats;
+
+import java.util.Arrays;
+import java.util.HashSet;
+import java.util.Set;
 
 // Maps a Kafka Connect field Schema to the StarRocks DDL type used when a
 // missing column is added via ALTER TABLE ADD COLUMN. Columns added this way
@@ -34,16 +41,36 @@ public final class StarRocksTypeMapper {
     private static final String DECIMAL_PRECISION_PARAM = "connect.decimal.precision";
     private static final int DEFAULT_DECIMAL_PRECISION = 38;
 
+    private static final Set<String> DATE_LOGICAL_NAMES = new HashSet<>(Arrays.asList(
+            Date.LOGICAL_NAME,
+            TemporalTypeFormats.DEBEZIUM_DATE));
+
+    private static final Set<String> DATETIME_LOGICAL_NAMES = new HashSet<>(Arrays.asList(
+            Timestamp.LOGICAL_NAME,
+            TemporalTypeFormats.DEBEZIUM_TIMESTAMP,
+            TemporalTypeFormats.DEBEZIUM_MICRO_TIMESTAMP,
+            TemporalTypeFormats.DEBEZIUM_NANO_TIMESTAMP,
+            TemporalTypeFormats.DEBEZIUM_ZONED_TIMESTAMP));
+
+    private static final Set<String> TIME_LOGICAL_NAMES = new HashSet<>(Arrays.asList(
+            Time.LOGICAL_NAME,
+            TemporalTypeFormats.DEBEZIUM_TIME,
+            TemporalTypeFormats.DEBEZIUM_MICRO_TIME,
+            TemporalTypeFormats.DEBEZIUM_NANO_TIME));
+
     private StarRocksTypeMapper() {
     }
 
     public static String mapType(Schema schema) {
         String logicalName = schema.name();
-        if (Date.LOGICAL_NAME.equals(logicalName)) {
+        if (DATE_LOGICAL_NAMES.contains(logicalName)) {
             return "DATE";
         }
-        if (Timestamp.LOGICAL_NAME.equals(logicalName)) {
+        if (DATETIME_LOGICAL_NAMES.contains(logicalName)) {
             return "DATETIME";
+        }
+        if (TIME_LOGICAL_NAMES.contains(logicalName)) {
+            return "STRING";
         }
         if (Decimal.LOGICAL_NAME.equals(logicalName)) {
             return mapDecimal(schema);

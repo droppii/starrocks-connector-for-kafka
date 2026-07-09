@@ -24,9 +24,12 @@ import org.apache.kafka.connect.data.Date;
 import org.apache.kafka.connect.data.Decimal;
 import org.apache.kafka.connect.data.Schema;
 import org.apache.kafka.connect.data.SchemaBuilder;
+import org.apache.kafka.connect.data.Time;
 import org.apache.kafka.connect.data.Timestamp;
 import org.junit.Assert;
 import org.junit.Test;
+
+import com.starrocks.connector.kafka.json.TemporalTypeFormats;
 
 public class StarRocksTypeMapperTest {
 
@@ -51,6 +54,39 @@ public class StarRocksTypeMapperTest {
     @Test
     public void mapsTimestampLogicalType() {
         Assert.assertEquals("DATETIME", StarRocksTypeMapper.mapType(Timestamp.SCHEMA));
+    }
+
+    @Test
+    public void mapsTimeLogicalTypeToString() {
+        Assert.assertEquals("STRING", StarRocksTypeMapper.mapType(Time.SCHEMA));
+    }
+
+    @Test
+    public void mapsDebeziumDateLogicalTypeToDate() {
+        Schema schema = SchemaBuilder.int32().name(TemporalTypeFormats.DEBEZIUM_DATE).build();
+        Assert.assertEquals("DATE", StarRocksTypeMapper.mapType(schema));
+    }
+
+    @Test
+    public void mapsDebeziumTimestampVariantsToDatetime() {
+        Assert.assertEquals("DATETIME", StarRocksTypeMapper.mapType(
+                SchemaBuilder.int64().name(TemporalTypeFormats.DEBEZIUM_TIMESTAMP).build()));
+        Assert.assertEquals("DATETIME", StarRocksTypeMapper.mapType(
+                SchemaBuilder.int64().name(TemporalTypeFormats.DEBEZIUM_MICRO_TIMESTAMP).build()));
+        Assert.assertEquals("DATETIME", StarRocksTypeMapper.mapType(
+                SchemaBuilder.int64().name(TemporalTypeFormats.DEBEZIUM_NANO_TIMESTAMP).build()));
+        Assert.assertEquals("DATETIME", StarRocksTypeMapper.mapType(
+                SchemaBuilder.string().name(TemporalTypeFormats.DEBEZIUM_ZONED_TIMESTAMP).build()));
+    }
+
+    @Test
+    public void mapsDebeziumTimeVariantsToString() {
+        Assert.assertEquals("STRING", StarRocksTypeMapper.mapType(
+                SchemaBuilder.int32().name(TemporalTypeFormats.DEBEZIUM_TIME).build()));
+        Assert.assertEquals("STRING", StarRocksTypeMapper.mapType(
+                SchemaBuilder.int64().name(TemporalTypeFormats.DEBEZIUM_MICRO_TIME).build()));
+        Assert.assertEquals("STRING", StarRocksTypeMapper.mapType(
+                SchemaBuilder.int64().name(TemporalTypeFormats.DEBEZIUM_NANO_TIME).build()));
     }
 
     @Test
