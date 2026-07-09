@@ -61,6 +61,18 @@ public class StarRocksSinkConnectorConfig {
     // For precommit, the connector detects if an error has occurred and writes the failed data to the SR again.
     // This configuration controls the number of failed retries. The default value is 3. -1 indicates unlimited retry.
     public static final String SINK_MAXRETRIES = "sink.maxretries";
+    // Additive schema evolution mode for struct-schema (Debezium/Avro/JSON-with-schema) records:
+    // "none" (default, disabled) or "basic" (ALTER TABLE ADD COLUMN for fields missing from the target table).
+    // The target table must already exist; auto-create is not supported.
+    public static final String STARROCKS_SCHEMA_EVOLUTION = "starrocks.schema.evolution";
+    public static final String SCHEMA_EVOLUTION_NONE = "none";
+    public static final String SCHEMA_EVOLUTION_BASIC = "basic";
+    // StarRocks FE MySQL query port, used together with the host(s) from STARROCKS_LOAD_URL
+    // to build the JDBC URL used for schema evolution, unless STARROCKS_JDBC_URL is set.
+    public static final String STARROCKS_QUERY_PORT = "starrocks.query.port";
+    // Optional explicit JDBC URL for schema evolution, overriding the URL derived from
+    // STARROCKS_LOAD_URL and STARROCKS_QUERY_PORT.
+    public static final String STARROCKS_JDBC_URL = "starrocks.jdbc.url";
 
     public static final String[] mustRequiredConfigs = {
             STARROCKS_LOAD_URL,
@@ -181,6 +193,39 @@ public class StarRocksSinkConnectorConfig {
                         0,
                         ConfigDef.Width.NONE,
                         SINK_MAXRETRIES
+                ).define(
+                        STARROCKS_SCHEMA_EVOLUTION,
+                        ConfigDef.Type.STRING,
+                        SCHEMA_EVOLUTION_NONE,
+                        ConfigDef.ValidString.in(SCHEMA_EVOLUTION_NONE, SCHEMA_EVOLUTION_BASIC),
+                        ConfigDef.Importance.LOW,
+                        "additive schema evolution mode: none (default, disabled) or basic (ALTER TABLE ADD COLUMN for missing fields)",
+                        CONFIG_GROUP_1,
+                        0,
+                        ConfigDef.Width.NONE,
+                        STARROCKS_SCHEMA_EVOLUTION
+                ).define(
+                        STARROCKS_QUERY_PORT,
+                        ConfigDef.Type.INT,
+                        9030,
+                        ConfigDef.Range.between(1, 65535),
+                        ConfigDef.Importance.LOW,
+                        "starrocks FE MySQL query port, used to build the JDBC URL for schema evolution",
+                        CONFIG_GROUP_1,
+                        0,
+                        ConfigDef.Width.NONE,
+                        STARROCKS_QUERY_PORT
+                ).define(
+                        STARROCKS_JDBC_URL,
+                        ConfigDef.Type.STRING,
+                        null,
+                        null,
+                        ConfigDef.Importance.LOW,
+                        "optional explicit JDBC URL for schema evolution; overrides the URL derived from starrocks.http.url and starrocks.query.port",
+                        CONFIG_GROUP_1,
+                        0,
+                        ConfigDef.Width.NONE,
+                        STARROCKS_JDBC_URL
                 );
     }
 }

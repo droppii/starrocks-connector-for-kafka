@@ -95,6 +95,12 @@ public class StarRocksSinkConnector extends SinkConnector {
         if (!connectorConfigs.containsKey(SINK_MAXRETRIES)) {
             connectorConfigs.put(SINK_MAXRETRIES, "3");
         }
+        if (!connectorConfigs.containsKey(STARROCKS_SCHEMA_EVOLUTION)) {
+            connectorConfigs.put(STARROCKS_SCHEMA_EVOLUTION, StarRocksSinkConnectorConfig.SCHEMA_EVOLUTION_NONE);
+        }
+        if (!connectorConfigs.containsKey(STARROCKS_QUERY_PORT)) {
+            connectorConfigs.put(STARROCKS_QUERY_PORT, "9030");
+        }
         Config result = super.validate(connectorConfigs);
         for (String config : StarRocksSinkConnectorConfig.mustRequiredConfigs) {
             for (ConfigValue v : result.configValues()) {
