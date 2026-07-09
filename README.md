@@ -41,5 +41,21 @@ starrocks.schema.evolution=basic
 starrocks.query.port=9030
 ```
 
+## Type Mapping
+
+For schema evolution DDL (`ALTER TABLE ADD COLUMN`) and for the JSON values
+sent to Stream Load, Kafka Connect and Debezium logical types map to
+StarRocks types as follows:
+
+| Kafka Connect / Debezium logical type | StarRocks DDL type | Serialized value format |
+|---|---|---|
+| `org.apache.kafka.connect.data.Date`, `io.debezium.time.Date` | `DATE` | `yyyy-MM-dd` |
+| `org.apache.kafka.connect.data.Timestamp`, `io.debezium.time.Timestamp`, `io.debezium.time.MicroTimestamp`, `io.debezium.time.NanoTimestamp`, `io.debezium.time.ZonedTimestamp` | `DATETIME` | `yyyy-MM-dd HH:mm:ss.SSSSSS` (always 6 fractional digits; nanosecond-precision sources are truncated, not rounded, to microseconds; `ZonedTimestamp` is normalized to UTC before formatting) |
+| `org.apache.kafka.connect.data.Time`, `io.debezium.time.Time`, `io.debezium.time.MicroTime`, `io.debezium.time.NanoTime` | `STRING` | `HH:mm:ss.SSSSSS` (same precision rules as above) |
+| `org.apache.kafka.connect.data.Decimal` | `DECIMAL(p,s)` | numeric |
+
+These conversions happen automatically — no SMT (e.g. a `TimestampConverter`
+transform) is needed to reformat temporal fields before they reach the sink.
+
 ## LICENSE
 The connector is under the [Apache License 2.0](LICENSE.txt).
