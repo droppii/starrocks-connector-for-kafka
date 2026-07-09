@@ -32,6 +32,7 @@ import org.junit.Test;
 
 import java.util.HashMap;
 import java.util.Map;
+import java.nio.charset.StandardCharsets;
 import org.apache.kafka.connect.data.Date;
 import org.apache.kafka.connect.data.Schema;
 import org.apache.kafka.connect.data.SchemaBuilder;
@@ -149,7 +150,7 @@ public class JsonConverterTest {
     }
 
     @Test
-    public void roundTripsStructWithDebeziumTimestampField() {
+    public void serializesStructWithDebeziumTimestampField() {
         JsonConverter jsonConverter = StarRocksSinkTask.createJsonConverter();
         Schema schema = SchemaBuilder.struct()
                 .field("createdAt", SchemaBuilder.int64().name(TemporalTypeFormats.DEBEZIUM_TIMESTAMP).build())
@@ -157,5 +158,95 @@ public class JsonConverterTest {
         Struct struct = new Struct(schema).put("createdAt", 90061000L);
         JsonNode node = jsonConverter.convertToJson(schema, struct);
         Assert.assertEquals("{\"createdAt\":\"1970-01-02 01:01:01.000000\"}", node.toString());
+    }
+
+    @Test
+    public void parsesKafkaConnectDateFromStarRocksString() {
+        JsonConverter jsonConverter = StarRocksSinkTask.createJsonConverter();
+        String envelope = "{\"schema\":{\"type\":\"int32\",\"optional\":false,\"name\":\"org.apache.kafka.connect.data.Date\"},"
+                + "\"payload\":\"1970-01-01\"}";
+        SchemaAndValue schemaAndValue = jsonConverter.toConnectData("test-topic", envelope.getBytes(StandardCharsets.UTF_8));
+        Assert.assertEquals(Date.toLogical(Date.SCHEMA, 0), schemaAndValue.value());
+    }
+
+    @Test
+    public void parsesKafkaConnectTimestampFromStarRocksString() {
+        JsonConverter jsonConverter = StarRocksSinkTask.createJsonConverter();
+        String envelope = "{\"schema\":{\"type\":\"int64\",\"optional\":false,\"name\":\"org.apache.kafka.connect.data.Timestamp\"},"
+                + "\"payload\":\"1970-01-02 01:01:01.000000\"}";
+        SchemaAndValue schemaAndValue = jsonConverter.toConnectData("test-topic", envelope.getBytes(StandardCharsets.UTF_8));
+        Assert.assertEquals(Timestamp.toLogical(Timestamp.SCHEMA, 90061000L), schemaAndValue.value());
+    }
+
+    @Test
+    public void parsesKafkaConnectTimeFromStarRocksString() {
+        JsonConverter jsonConverter = StarRocksSinkTask.createJsonConverter();
+        String envelope = "{\"schema\":{\"type\":\"int32\",\"optional\":false,\"name\":\"org.apache.kafka.connect.data.Time\"},"
+                + "\"payload\":\"01:02:03.000000\"}";
+        SchemaAndValue schemaAndValue = jsonConverter.toConnectData("test-topic", envelope.getBytes(StandardCharsets.UTF_8));
+        Assert.assertEquals(Time.toLogical(Time.SCHEMA, 3723000), schemaAndValue.value());
+    }
+
+    @Test
+    public void parsesDebeziumDateFromStarRocksString() {
+        JsonConverter jsonConverter = StarRocksSinkTask.createJsonConverter();
+        String envelope = "{\"schema\":{\"type\":\"int32\",\"optional\":false,\"name\":\"" + TemporalTypeFormats.DEBEZIUM_DATE + "\"},"
+                + "\"payload\":\"1969-12-31\"}";
+        SchemaAndValue schemaAndValue = jsonConverter.toConnectData("test-topic", envelope.getBytes(StandardCharsets.UTF_8));
+        Assert.assertEquals(-1, schemaAndValue.value());
+    }
+
+    @Test
+    public void parsesDebeziumMicroTimestampFromStarRocksString() {
+        JsonConverter jsonConverter = StarRocksSinkTask.createJsonConverter();
+        String envelope = "{\"schema\":{\"type\":\"int64\",\"optional\":false,\"name\":\"" + TemporalTypeFormats.DEBEZIUM_MICRO_TIMESTAMP + "\"},"
+                + "\"payload\":\"1970-01-01 00:00:01.500000\"}";
+        SchemaAndValue schemaAndValue = jsonConverter.toConnectData("test-topic", envelope.getBytes(StandardCharsets.UTF_8));
+        Assert.assertEquals(1_500_000L, schemaAndValue.value());
+    }
+
+    @Test
+    public void parsesDebeziumNanoTimestampFromStarRocksString() {
+        JsonConverter jsonConverter = StarRocksSinkTask.createJsonConverter();
+        String envelope = "{\"schema\":{\"type\":\"int64\",\"optional\":false,\"name\":\"" + TemporalTypeFormats.DEBEZIUM_NANO_TIMESTAMP + "\"},"
+                + "\"payload\":\"1970-01-01 00:00:01.500000\"}";
+        SchemaAndValue schemaAndValue = jsonConverter.toConnectData("test-topic", envelope.getBytes(StandardCharsets.UTF_8));
+        Assert.assertEquals(1_500_000_000L, schemaAndValue.value());
+    }
+
+    @Test
+    public void parsesDebeziumZonedTimestampFromStarRocksString() {
+        JsonConverter jsonConverter = StarRocksSinkTask.createJsonConverter();
+        String envelope = "{\"schema\":{\"type\":\"string\",\"optional\":false,\"name\":\"" + TemporalTypeFormats.DEBEZIUM_ZONED_TIMESTAMP + "\"},"
+                + "\"payload\":\"2024-01-01 10:15:30.123456\"}";
+        SchemaAndValue schemaAndValue = jsonConverter.toConnectData("test-topic", envelope.getBytes(StandardCharsets.UTF_8));
+        Assert.assertEquals("2024-01-01T10:15:30.123456Z", schemaAndValue.value());
+    }
+
+    @Test
+    public void parsesDebeziumTimeFromStarRocksString() {
+        JsonConverter jsonConverter = StarRocksSinkTask.createJsonConverter();
+        String envelope = "{\"schema\":{\"type\":\"int32\",\"optional\":false,\"name\":\"" + TemporalTypeFormats.DEBEZIUM_TIME + "\"},"
+                + "\"payload\":\"01:02:03.000000\"}";
+        SchemaAndValue schemaAndValue = jsonConverter.toConnectData("test-topic", envelope.getBytes(StandardCharsets.UTF_8));
+        Assert.assertEquals(3723000, schemaAndValue.value());
+    }
+
+    @Test
+    public void parsesDebeziumMicroTimeFromStarRocksString() {
+        JsonConverter jsonConverter = StarRocksSinkTask.createJsonConverter();
+        String envelope = "{\"schema\":{\"type\":\"int64\",\"optional\":false,\"name\":\"" + TemporalTypeFormats.DEBEZIUM_MICRO_TIME + "\"},"
+                + "\"payload\":\"01:02:03.500000\"}";
+        SchemaAndValue schemaAndValue = jsonConverter.toConnectData("test-topic", envelope.getBytes(StandardCharsets.UTF_8));
+        Assert.assertEquals(3723500000L, schemaAndValue.value());
+    }
+
+    @Test
+    public void parsesDebeziumNanoTimeFromStarRocksString() {
+        JsonConverter jsonConverter = StarRocksSinkTask.createJsonConverter();
+        String envelope = "{\"schema\":{\"type\":\"int64\",\"optional\":false,\"name\":\"" + TemporalTypeFormats.DEBEZIUM_NANO_TIME + "\"},"
+                + "\"payload\":\"01:02:03.500000\"}";
+        SchemaAndValue schemaAndValue = jsonConverter.toConnectData("test-topic", envelope.getBytes(StandardCharsets.UTF_8));
+        Assert.assertEquals(3723500000000L, schemaAndValue.value());
     }
 }
