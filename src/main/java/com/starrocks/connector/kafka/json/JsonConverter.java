@@ -167,14 +167,15 @@ public class JsonConverter implements Converter, HeaderConverter {
             public JsonNode toJson(final Schema schema, final Object value, final JsonConverterConfig config) {
                 if (!(value instanceof java.util.Date))
                     throw new DataException("Invalid type for Date, expected Date but was " + value.getClass());
-                return JSON_NODE_FACTORY.numberNode(Date.fromLogical(schema, (java.util.Date) value));
+                int epochDay = Date.fromLogical(schema, (java.util.Date) value);
+                return JSON_NODE_FACTORY.textNode(TemporalTypeFormats.formatDate(epochDay));
             }
 
             @Override
             public Object toConnect(final Schema schema, final JsonNode value) {
-                if (!(value.isInt()))
-                    throw new DataException("Invalid type for Date, underlying representation should be integer but was " + value.getNodeType());
-                return Date.toLogical(schema, value.intValue());
+                if (!value.isTextual())
+                    throw new DataException("Invalid type for Date, underlying representation should be a string but was " + value.getNodeType());
+                return Date.toLogical(schema, TemporalTypeFormats.parseDate(value.textValue()));
             }
         });
 
@@ -183,14 +184,15 @@ public class JsonConverter implements Converter, HeaderConverter {
             public JsonNode toJson(final Schema schema, final Object value, final JsonConverterConfig config) {
                 if (!(value instanceof java.util.Date))
                     throw new DataException("Invalid type for Time, expected Date but was " + value.getClass());
-                return JSON_NODE_FACTORY.numberNode(Time.fromLogical(schema, (java.util.Date) value));
+                int millisOfDay = Time.fromLogical(schema, (java.util.Date) value);
+                return JSON_NODE_FACTORY.textNode(TemporalTypeFormats.formatTimeMillis(millisOfDay));
             }
 
             @Override
             public Object toConnect(final Schema schema, final JsonNode value) {
-                if (!(value.isInt()))
-                    throw new DataException("Invalid type for Time, underlying representation should be integer but was " + value.getNodeType());
-                return Time.toLogical(schema, value.intValue());
+                if (!value.isTextual())
+                    throw new DataException("Invalid type for Time, underlying representation should be a string but was " + value.getNodeType());
+                return Time.toLogical(schema, TemporalTypeFormats.parseTimeMillis(value.textValue()));
             }
         });
 
@@ -199,14 +201,143 @@ public class JsonConverter implements Converter, HeaderConverter {
             public JsonNode toJson(final Schema schema, final Object value, final JsonConverterConfig config) {
                 if (!(value instanceof java.util.Date))
                     throw new DataException("Invalid type for Timestamp, expected Date but was " + value.getClass());
-                return JSON_NODE_FACTORY.numberNode(Timestamp.fromLogical(schema, (java.util.Date) value));
+                long epochMillis = Timestamp.fromLogical(schema, (java.util.Date) value);
+                return JSON_NODE_FACTORY.textNode(TemporalTypeFormats.formatDateTimeMillis(epochMillis));
             }
 
             @Override
             public Object toConnect(final Schema schema, final JsonNode value) {
-                if (!(value.isIntegralNumber()))
-                    throw new DataException("Invalid type for Timestamp, underlying representation should be integral but was " + value.getNodeType());
-                return Timestamp.toLogical(schema, value.longValue());
+                if (!value.isTextual())
+                    throw new DataException("Invalid type for Timestamp, underlying representation should be a string but was " + value.getNodeType());
+                return Timestamp.toLogical(schema, TemporalTypeFormats.parseDateTimeMillis(value.textValue()));
+            }
+        });
+
+        LOGICAL_CONVERTERS.put(TemporalTypeFormats.DEBEZIUM_DATE, new LogicalTypeConverter() {
+            @Override
+            public JsonNode toJson(final Schema schema, final Object value, final JsonConverterConfig config) {
+                if (!(value instanceof Integer))
+                    throw new DataException("Invalid type for " + TemporalTypeFormats.DEBEZIUM_DATE + ", expected Integer but was " + value.getClass());
+                return JSON_NODE_FACTORY.textNode(TemporalTypeFormats.formatDate((Integer) value));
+            }
+
+            @Override
+            public Object toConnect(final Schema schema, final JsonNode value) {
+                if (!value.isTextual())
+                    throw new DataException("Invalid type for " + TemporalTypeFormats.DEBEZIUM_DATE + ", underlying representation should be a string but was " + value.getNodeType());
+                return TemporalTypeFormats.parseDate(value.textValue());
+            }
+        });
+
+        LOGICAL_CONVERTERS.put(TemporalTypeFormats.DEBEZIUM_TIMESTAMP, new LogicalTypeConverter() {
+            @Override
+            public JsonNode toJson(final Schema schema, final Object value, final JsonConverterConfig config) {
+                if (!(value instanceof Long))
+                    throw new DataException("Invalid type for " + TemporalTypeFormats.DEBEZIUM_TIMESTAMP + ", expected Long but was " + value.getClass());
+                return JSON_NODE_FACTORY.textNode(TemporalTypeFormats.formatDateTimeMillis((Long) value));
+            }
+
+            @Override
+            public Object toConnect(final Schema schema, final JsonNode value) {
+                if (!value.isTextual())
+                    throw new DataException("Invalid type for " + TemporalTypeFormats.DEBEZIUM_TIMESTAMP + ", underlying representation should be a string but was " + value.getNodeType());
+                return TemporalTypeFormats.parseDateTimeMillis(value.textValue());
+            }
+        });
+
+        LOGICAL_CONVERTERS.put(TemporalTypeFormats.DEBEZIUM_MICRO_TIMESTAMP, new LogicalTypeConverter() {
+            @Override
+            public JsonNode toJson(final Schema schema, final Object value, final JsonConverterConfig config) {
+                if (!(value instanceof Long))
+                    throw new DataException("Invalid type for " + TemporalTypeFormats.DEBEZIUM_MICRO_TIMESTAMP + ", expected Long but was " + value.getClass());
+                return JSON_NODE_FACTORY.textNode(TemporalTypeFormats.formatDateTimeMicros((Long) value));
+            }
+
+            @Override
+            public Object toConnect(final Schema schema, final JsonNode value) {
+                if (!value.isTextual())
+                    throw new DataException("Invalid type for " + TemporalTypeFormats.DEBEZIUM_MICRO_TIMESTAMP + ", underlying representation should be a string but was " + value.getNodeType());
+                return TemporalTypeFormats.parseDateTimeMicros(value.textValue());
+            }
+        });
+
+        LOGICAL_CONVERTERS.put(TemporalTypeFormats.DEBEZIUM_NANO_TIMESTAMP, new LogicalTypeConverter() {
+            @Override
+            public JsonNode toJson(final Schema schema, final Object value, final JsonConverterConfig config) {
+                if (!(value instanceof Long))
+                    throw new DataException("Invalid type for " + TemporalTypeFormats.DEBEZIUM_NANO_TIMESTAMP + ", expected Long but was " + value.getClass());
+                return JSON_NODE_FACTORY.textNode(TemporalTypeFormats.formatDateTimeNanos((Long) value));
+            }
+
+            @Override
+            public Object toConnect(final Schema schema, final JsonNode value) {
+                if (!value.isTextual())
+                    throw new DataException("Invalid type for " + TemporalTypeFormats.DEBEZIUM_NANO_TIMESTAMP + ", underlying representation should be a string but was " + value.getNodeType());
+                return TemporalTypeFormats.parseDateTimeNanos(value.textValue());
+            }
+        });
+
+        LOGICAL_CONVERTERS.put(TemporalTypeFormats.DEBEZIUM_ZONED_TIMESTAMP, new LogicalTypeConverter() {
+            @Override
+            public JsonNode toJson(final Schema schema, final Object value, final JsonConverterConfig config) {
+                if (!(value instanceof String))
+                    throw new DataException("Invalid type for " + TemporalTypeFormats.DEBEZIUM_ZONED_TIMESTAMP + ", expected String but was " + value.getClass());
+                return JSON_NODE_FACTORY.textNode(TemporalTypeFormats.formatZonedDateTime((String) value));
+            }
+
+            @Override
+            public Object toConnect(final Schema schema, final JsonNode value) {
+                if (!value.isTextual())
+                    throw new DataException("Invalid type for " + TemporalTypeFormats.DEBEZIUM_ZONED_TIMESTAMP + ", underlying representation should be a string but was " + value.getNodeType());
+                return TemporalTypeFormats.parseZonedDateTime(value.textValue());
+            }
+        });
+
+        LOGICAL_CONVERTERS.put(TemporalTypeFormats.DEBEZIUM_TIME, new LogicalTypeConverter() {
+            @Override
+            public JsonNode toJson(final Schema schema, final Object value, final JsonConverterConfig config) {
+                if (!(value instanceof Integer))
+                    throw new DataException("Invalid type for " + TemporalTypeFormats.DEBEZIUM_TIME + ", expected Integer but was " + value.getClass());
+                return JSON_NODE_FACTORY.textNode(TemporalTypeFormats.formatTimeMillis((Integer) value));
+            }
+
+            @Override
+            public Object toConnect(final Schema schema, final JsonNode value) {
+                if (!value.isTextual())
+                    throw new DataException("Invalid type for " + TemporalTypeFormats.DEBEZIUM_TIME + ", underlying representation should be a string but was " + value.getNodeType());
+                return TemporalTypeFormats.parseTimeMillis(value.textValue());
+            }
+        });
+
+        LOGICAL_CONVERTERS.put(TemporalTypeFormats.DEBEZIUM_MICRO_TIME, new LogicalTypeConverter() {
+            @Override
+            public JsonNode toJson(final Schema schema, final Object value, final JsonConverterConfig config) {
+                if (!(value instanceof Long))
+                    throw new DataException("Invalid type for " + TemporalTypeFormats.DEBEZIUM_MICRO_TIME + ", expected Long but was " + value.getClass());
+                return JSON_NODE_FACTORY.textNode(TemporalTypeFormats.formatTimeMicros((Long) value));
+            }
+
+            @Override
+            public Object toConnect(final Schema schema, final JsonNode value) {
+                if (!value.isTextual())
+                    throw new DataException("Invalid type for " + TemporalTypeFormats.DEBEZIUM_MICRO_TIME + ", underlying representation should be a string but was " + value.getNodeType());
+                return TemporalTypeFormats.parseTimeMicros(value.textValue());
+            }
+        });
+
+        LOGICAL_CONVERTERS.put(TemporalTypeFormats.DEBEZIUM_NANO_TIME, new LogicalTypeConverter() {
+            @Override
+            public JsonNode toJson(final Schema schema, final Object value, final JsonConverterConfig config) {
+                if (!(value instanceof Long))
+                    throw new DataException("Invalid type for " + TemporalTypeFormats.DEBEZIUM_NANO_TIME + ", expected Long but was " + value.getClass());
+                return JSON_NODE_FACTORY.textNode(TemporalTypeFormats.formatTimeNanos((Long) value));
+            }
+
+            @Override
+            public Object toConnect(final Schema schema, final JsonNode value) {
+                if (!value.isTextual())
+                    throw new DataException("Invalid type for " + TemporalTypeFormats.DEBEZIUM_NANO_TIME + ", underlying representation should be a string but was " + value.getNodeType());
+                return TemporalTypeFormats.parseTimeNanos(value.textValue());
             }
         });
     }
