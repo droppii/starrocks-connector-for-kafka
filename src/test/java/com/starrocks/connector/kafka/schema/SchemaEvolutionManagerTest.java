@@ -167,4 +167,37 @@ public class SchemaEvolutionManagerTest {
             Assert.assertTrue(e.getMessage().contains("Failed to add column"));
         }
     }
+
+    @Test
+    public void toleratesDuplicateColumnErrorWrappedAsCause() {
+        // Reproduces how the real JdbcStarRocksSystemService.executeAlter wraps the
+        // driver's SQLException: the outer ConnectException's own message is just the
+        // DDL text, and the real "duplicate column" text only survives on the cause.
+        // The fake-based test above throws the raw message directly with no wrapping,
+        // so it would not have caught a regression here.
+        Schema schema = SchemaBuilder.struct()
+                .field("id", Schema.INT32_SCHEMA)
+                .field("name", Schema.STRING_SCHEMA)
+                .build();
+        fake.nextExecuteError = new ConnectException(
+                "Failed to execute DDL against StarRocks: ALTER TABLE ...",
+                new RuntimeException("Duplicate column name 'name'"));
+
+        manager.evolve("test_table", schema);
+        manager.evolve("test_table", schema);
+
+        Assert.assertEquals(1, fake.executedDdls.size());
+    }
+
+    @Test
+    public void skipsFieldWithUnsafeIdentifierName() {
+        Schema schema = SchemaBuilder.struct()
+                .field("id", Schema.INT32_SCHEMA)
+                .field("bad`name", Schema.STRING_SCHEMA)
+                .build();
+
+        manager.evolve("test_table", schema);
+
+        Assert.assertTrue(fake.executedDdls.isEmpty());
+    }
 }

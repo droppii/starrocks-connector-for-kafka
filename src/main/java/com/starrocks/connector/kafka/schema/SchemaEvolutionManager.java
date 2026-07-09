@@ -38,6 +38,9 @@ import org.slf4j.LoggerFactory;
 public class SchemaEvolutionManager {
     private static final Logger LOG = LoggerFactory.getLogger(SchemaEvolutionManager.class);
 
+    private static final java.util.regex.Pattern SAFE_IDENTIFIER =
+            java.util.regex.Pattern.compile("^[A-Za-z0-9_]+$");
+
     private final StarRocksSystemService systemService;
     private final String database;
     private final Map<String, Set<String>> tableColumnsCache = new HashMap<>();
@@ -70,6 +73,11 @@ public class SchemaEvolutionManager {
             cachedColumns.add(field.name());
             return;
         }
+        if (!SAFE_IDENTIFIER.matcher(field.name()).matches()) {
+            LOG.warn("Skipping schema evolution for field '{}' on table {}.{}: "
+                    + "field name is not a safe SQL identifier", field.name(), database, table);
+            return;
+        }
         String columnType = StarRocksTypeMapper.mapType(field.schema());
         String ddl = String.format(
                 "ALTER TABLE `%s`.`%s` ADD COLUMN `%s` %s NULL",
@@ -89,7 +97,14 @@ public class SchemaEvolutionManager {
     }
 
     private boolean isDuplicateColumnError(Exception e) {
-        String message = e.getMessage();
+        if (containsDuplicateColumnText(e.getMessage())) {
+            return true;
+        }
+        Throwable cause = e.getCause();
+        return cause != null && containsDuplicateColumnText(cause.getMessage());
+    }
+
+    private boolean containsDuplicateColumnText(String message) {
         return message != null && message.toLowerCase().contains("duplicate column");
     }
 }
