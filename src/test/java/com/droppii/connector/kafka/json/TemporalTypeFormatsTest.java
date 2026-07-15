@@ -70,6 +70,12 @@ public class TemporalTypeFormatsTest {
     }
 
     @Test
+    public void formatsPostgresInfinityZonedTimestampsAsNull() {
+        Assert.assertNull(TemporalTypeFormats.formatZonedDateTime("-infinity"));
+        Assert.assertNull(TemporalTypeFormats.formatZonedDateTime("infinity"));
+    }
+
+    @Test
     public void parsesZonedTimestampBackToUtcIso8601() {
         Assert.assertEquals("2024-01-01T10:15:30.123456Z",
                 TemporalTypeFormats.parseZonedDateTime("2024-01-01 10:15:30.123456"));

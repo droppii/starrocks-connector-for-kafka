@@ -282,7 +282,8 @@ public class JsonConverter implements Converter, HeaderConverter {
             public JsonNode toJson(final Schema schema, final Object value, final JsonConverterConfig config) {
                 if (!(value instanceof String))
                     throw new DataException("Invalid type for " + TemporalTypeFormats.DEBEZIUM_ZONED_TIMESTAMP + ", expected String but was " + value.getClass());
-                return JSON_NODE_FACTORY.textNode(TemporalTypeFormats.formatZonedDateTime((String) value));
+                String formatted = TemporalTypeFormats.formatZonedDateTime((String) value);
+                return formatted == null ? JSON_NODE_FACTORY.nullNode() : JSON_NODE_FACTORY.textNode(formatted);
             }
 
             @Override

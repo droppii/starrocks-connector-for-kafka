@@ -90,7 +90,17 @@ public final class TemporalTypeFormats {
         return Math.multiplyExact(parseDateTimeMicros(text), 1000L);
     }
 
+    // PostgreSQL's timestamptz supports the sentinel values -infinity/infinity (an
+    // unbounded range endpoint, not a real instant). Debezium passes them through as
+    // literal strings since there's no ISO-8601 representation for them, and StarRocks
+    // DATETIME has no infinity concept either, so they're dropped to null.
+    private static final String NEGATIVE_INFINITY = "-infinity";
+    private static final String POSITIVE_INFINITY = "infinity";
+
     public static String formatZonedDateTime(String iso8601) {
+        if (NEGATIVE_INFINITY.equals(iso8601) || POSITIVE_INFINITY.equals(iso8601)) {
+            return null;
+        }
         OffsetDateTime offsetDateTime = OffsetDateTime.parse(iso8601);
         Instant instant = offsetDateTime.toInstant();
         long epochMicros = Math.addExact(

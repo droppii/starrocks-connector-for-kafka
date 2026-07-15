@@ -126,6 +126,14 @@ public class JsonConverterTest {
     }
 
     @Test
+    public void serializesDebeziumZonedTimestampInfinityAsNull() {
+        JsonConverter jsonConverter = StarRocksSinkTask.createJsonConverter();
+        Schema schema = SchemaBuilder.string().name(TemporalTypeFormats.DEBEZIUM_ZONED_TIMESTAMP).build();
+        Assert.assertEquals("null", jsonConverter.convertToJson(schema, "-infinity").toString());
+        Assert.assertEquals("null", jsonConverter.convertToJson(schema, "infinity").toString());
+    }
+
+    @Test
     public void serializesDebeziumTimeAsStarRocksString() {
         JsonConverter jsonConverter = StarRocksSinkTask.createJsonConverter();
         Schema schema = SchemaBuilder.int32().name(TemporalTypeFormats.DEBEZIUM_TIME).build();
