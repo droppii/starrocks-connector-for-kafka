@@ -90,6 +90,12 @@ public class StarRocksTypeMapperTest {
     }
 
     @Test
+    public void mapsDebeziumJsonLogicalTypeToJson() {
+        Schema schema = SchemaBuilder.string().name("io.debezium.data.Json").build();
+        Assert.assertEquals("JSON", StarRocksTypeMapper.mapType(schema));
+    }
+
+    @Test
     public void mapsDecimalLogicalTypeWithExplicitPrecision() {
         Schema schema = Decimal.builder(2).parameter("connect.decimal.precision", "10").build();
         Assert.assertEquals("DECIMAL(10,2)", StarRocksTypeMapper.mapType(schema));

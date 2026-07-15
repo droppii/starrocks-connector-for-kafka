@@ -41,6 +41,13 @@ public final class StarRocksTypeMapper {
     private static final String DECIMAL_PRECISION_PARAM = "connect.decimal.precision";
     private static final int DEFAULT_DECIMAL_PRECISION = 38;
 
+    // Debezium's JSON logical type: a STRING-backed schema whose value is always valid
+    // JSON text (e.g. from a MySQL JSON column). Map it to a StarRocks JSON column instead
+    // of the generic STRING fallback so it can be queried with StarRocks' JSON functions;
+    // no value-serialization change is needed, since the JSON text is written unchanged
+    // either way.
+    private static final String DEBEZIUM_JSON_LOGICAL_NAME = "io.debezium.data.Json";
+
     private static final Set<String> DATE_LOGICAL_NAMES = new HashSet<>(Arrays.asList(
             Date.LOGICAL_NAME,
             TemporalTypeFormats.DEBEZIUM_DATE));
@@ -74,6 +81,9 @@ public final class StarRocksTypeMapper {
         }
         if (Decimal.LOGICAL_NAME.equals(logicalName)) {
             return mapDecimal(schema);
+        }
+        if (DEBEZIUM_JSON_LOGICAL_NAME.equals(logicalName)) {
+            return "JSON";
         }
         switch (schema.type()) {
             case INT8:
