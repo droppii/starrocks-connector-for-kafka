@@ -88,6 +88,14 @@ public class SchemaEvolutionManager {
         } catch (Exception e) {
             if (isDuplicateColumnError(e)) {
                 LOG.warn("Column {} already exists on {}.{}, ignoring: {}", field.name(), database, table, e.getMessage());
+            } else if (isReservedColumnNameError(e)) {
+                // e.g. `__op`, injected by AddOpFieldForDebeziumRecord for StarRocks primary-key
+                // upsert/delete semantics: StarRocks reserves the name for its own Stream Load
+                // protocol and will never allow it as a real column. The field still gets sent
+                // in every load payload; it's just never a stored column, so evolution for it
+                // must be treated as permanently settled rather than retried every batch.
+                LOG.warn("Column {} is a StarRocks-reserved name and cannot be added to {}.{}, ignoring: {}",
+                        field.name(), database, table, e.getMessage());
             } else {
                 throw new ConnectException(
                         "Failed to add column " + field.name() + " to StarRocks table " + database + "." + table, e);
@@ -97,14 +105,22 @@ public class SchemaEvolutionManager {
     }
 
     private boolean isDuplicateColumnError(Exception e) {
-        if (containsDuplicateColumnText(e.getMessage())) {
+        return containsErrorText(e, "duplicate column");
+    }
+
+    private boolean isReservedColumnNameError(Exception e) {
+        return containsErrorText(e, "system reserved name");
+    }
+
+    private boolean containsErrorText(Exception e, String needle) {
+        if (containsText(e.getMessage(), needle)) {
             return true;
         }
         Throwable cause = e.getCause();
-        return cause != null && containsDuplicateColumnText(cause.getMessage());
+        return cause != null && containsText(cause.getMessage(), needle);
     }
 
-    private boolean containsDuplicateColumnText(String message) {
-        return message != null && message.toLowerCase().contains("duplicate column");
+    private boolean containsText(String message, String needle) {
+        return message != null && message.toLowerCase().contains(needle);
     }
 }

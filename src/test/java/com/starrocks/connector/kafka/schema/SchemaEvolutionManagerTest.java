@@ -190,6 +190,30 @@ public class SchemaEvolutionManagerTest {
     }
 
     @Test
+    public void toleratesStarRocksReservedColumnNameError() {
+        // Reproduces the real StarRocks server error when schema evolution tries to add
+        // a column with a name StarRocks reserves for its own use (e.g. `__op`, injected by
+        // AddOpFieldForDebeziumRecord for primary-key table upsert/delete semantics). The
+        // column can never be created as a real column, so evolve() must swallow the error
+        // and remember the field as settled rather than retrying (and crashing the task) on
+        // every subsequent batch.
+        Schema schema = SchemaBuilder.struct()
+                .field("id", Schema.INT32_SCHEMA)
+                .field("__op", Schema.INT32_SCHEMA)
+                .build();
+        fake.nextExecuteError = new ConnectException(
+                "Failed to execute DDL against StarRocks: ALTER TABLE `dev`.`test_table` ADD COLUMN `__op` INT NULL",
+                new RuntimeException(
+                        "Getting analyzing error. Detail message: Column name [__op] is a system reserved name. "
+                                + "Please choose a different one.."));
+
+        manager.evolve("test_table", schema);
+        manager.evolve("test_table", schema);
+
+        Assert.assertEquals(1, fake.executedDdls.size());
+    }
+
+    @Test
     public void skipsFieldWithUnsafeIdentifierName() {
         Schema schema = SchemaBuilder.struct()
                 .field("id", Schema.INT32_SCHEMA)
