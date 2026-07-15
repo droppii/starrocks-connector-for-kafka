@@ -32,7 +32,7 @@ Example, combined with the existing Debezium unwrap chain:
 
 ```properties
 transforms=addfield,unwrap
-transforms.addfield.type=com.starrocks.connector.kafka.transforms.AddOpFieldForDebeziumRecord
+transforms.addfield.type=com.droppii.connector.kafka.transforms.AddOpFieldForDebeziumRecord
 transforms.unwrap.type=io.debezium.transforms.ExtractNewRecordState
 transforms.unwrap.drop.tombstones=true
 transforms.unwrap.delete.handling.mode=rewrite
