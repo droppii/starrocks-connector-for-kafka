@@ -44,3 +44,7 @@ Dùng credential được cấp cho đúng môi trường. Không lưu secret ho
 Áp dụng [Engineering Standards](https://github.com/droppii/engineering-knowledge/tree/docs/repository-context-pilot/handbook/standards/standards.md), [Principles](https://github.com/droppii/engineering-knowledge/tree/docs/repository-context-pilot/handbook/principles/principles.md) và [AI Context](https://github.com/droppii/engineering-knowledge/tree/docs/repository-context-pilot/handbook/ai-context/README.md). Cấu trúc đang có giải thích cách tìm mã; những phần chưa theo tiêu chuẩn cần được cải thiện khi sửa, không trở thành ngoại lệ mặc định.
 
 Cập nhật tài liệu này trong cùng thay đổi khi module, toolchain, public contract, pipeline hoặc điều kiện kiểm thử thay đổi. Quyết định đặc thù cần được ghi ở repository; kiến thức và tiêu chuẩn dùng chung được duy trì tại Engineering Knowledge.
+
+## Profile và workspace theo công việc
+
+[Profile thực thi của repository](../.engineering/README.md) cung cấp cấu hình theo module và điểm vào kiểm chứng local. Chọn profile trong workspace của công việc, chuẩn bị đúng toolchain/dependency, rồi ghi kết quả và giới hạn vào hồ sơ. Kiểm cấu hình hoặc cú pháp thành công chưa thay thế unit/integration test.

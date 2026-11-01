@@ -1,0 +1,84 @@
+{
+  "kind": "repository-execution-profiles",
+  "schemaVersion": 1,
+  "repository": "droppii/starrocks-connector-for-kafka",
+  "workspace": "checkout/worktree/VM do nền tảng agent quản lý theo công việc",
+  "context": "docs/repository-context.md",
+  "modules": [
+    {
+      "id": "java-plugin",
+      "path": ".",
+      "manifest": "pom.xml",
+      "runtime": {
+        "sources": [
+          "pom.xml"
+        ],
+        "selection": "JDK/Maven theo workflow và pom.xml; không suy target bytecode là phiên bản JDK chạy Maven"
+      },
+      "build": {
+        "cwd": ".",
+        "argv": [
+          "mvn",
+          "-B",
+          "-DskipTests",
+          "package"
+        ],
+        "conditions": [
+          "Dependency Maven và toolchain tương thích; package plugin không cài vào Elasticsearch/Kafka."
+        ]
+      }
+    }
+  ],
+  "imageSources": [],
+  "profiles": [
+    {
+      "id": "platform-inputs",
+      "kind": "source-check",
+      "purpose": "Đối chiếu đầu vào cấu hình nền tảng",
+      "cwd": ".",
+      "requiredFiles": [
+        "pom.xml"
+      ],
+      "patterns": [
+        "pom.xml"
+      ],
+      "exclude": [
+        ".claude/*",
+        ".opencode/*",
+        ".agents/*",
+        ".engineering/*",
+        "*node_modules/*",
+        "*__pycache__/*"
+      ],
+      "evidenceKind": "source-validation",
+      "limitations": [
+        "Kiểm tra cấu trúc/cú pháp đầu vào và ghi hash; chưa chạy ứng dụng hoặc kiểm chứng nghiệp vụ.",
+        "Python được phân tích AST; JSON nghiêm ngặt và XML được parse; các file khác chỉ được nhận diện bằng hash."
+      ]
+    },
+    {
+      "id": "plugin-package",
+      "kind": "command",
+      "purpose": "Đóng gói plugin Java",
+      "cwd": ".",
+      "argv": [
+        "mvn",
+        "-B",
+        "-DskipTests",
+        "package"
+      ],
+      "requiredFiles": [
+        "pom.xml"
+      ],
+      "preparedPaths": [
+        "src"
+      ],
+      "evidenceKind": "build",
+      "timeoutSeconds": 300,
+      "limitations": [
+        "Chuẩn bị đúng toolchain/dependency trước khi chạy; không khởi động dịch vụ hoặc kiểm chứng hành vi tích hợp."
+      ]
+    }
+  ],
+  "integrationPolicy": "API/database/broker/model/native/cloud cần profile hoặc môi trường thử riêng với đích, quyền, dữ liệu và kiểm chứng cụ thể; không chạy toàn bộ suite hoặc script start/migration/deploy để thử profile."
+}
